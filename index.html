@@ -2,54 +2,137 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Visitantes - OpenShift</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
-        h1 { color: #0066cc; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #f8f9fa; color: #555; }
-        .status { font-size: 0.9em; color: #666; margin-bottom: 10px; text-align: center; }
-        .badge { background: #e1f5fe; color: #01579b; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+        :root {
+            --primary: #0066cc;
+            --primary-dark: #004a99;
+            --bg: #f4f7f6;
+            --text: #333;
+            --white: #ffffff;
+            --border: #ddd;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+
+        .container { 
+            background: var(--white); 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 650px; 
+        }
+
+        h1 { color: var(--primary); text-align: center; margin-top: 0; }
+        
+        /* Estilos del Formulario */
+        .form-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--bg);
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0,102,204,0.1);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: var(--primary-dark); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* Estilos de la Tabla */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background-color: #f8f9fa; color: #555; font-size: 0.9em; text-transform: uppercase; }
+        
+        .status { font-size: 0.9em; color: #666; margin: 10px 0; text-align: center; }
+        .badge { background: #e1f5fe; color: #01579b; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-family: monospace; }
+        
+        /* Animación de entrada para filas nuevas */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .new-row { animation: fadeIn 0.5s ease-out; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>App Full-Stack en OpenShift</h1>
-        <p class="status" id="status">Conectando con la API...</p>
+        <h1>Registro de Visitantes</h1>
+        
+        <form id="visitor-form" class="form-group">
+            <input type="text" id="visitor-name" placeholder="Escribe tu nombre aquí..." required>
+            <button type="submit" id="submit-btn">Registrar</button>
+        </form>
+
+        <p class="status" id="status">Cargando visitantes...</p>
         
         <table id="visitors-table" style="display:none;">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Nombre del Visitante</th>
-                    <th>Fecha</th>
+                    <th>Nombre</th>
+                    <th>Fecha y Hora</th>
                 </tr>
             </thead>
-            <tbody id="visitors-body">
-                </tbody>
+            <tbody id="visitors-body"></tbody>
         </table>
     </div>
 
     <script>
-        async function fetchVisitors() {
-            const statusEl = document.getElementById('status');
-            const tableEl = document.getElementById('visitors-table');
-            const bodyEl = document.getElementById('visitors-body');
+        const statusEl = document.getElementById('status');
+        const tableEl = document.getElementById('visitors-table');
+        const bodyEl = document.getElementById('visitors-body');
+        const formEl = document.getElementById('visitor-form');
+        const inputEl = document.getElementById('visitor-name');
+        const btnEl = document.getElementById('submit-btn');
 
+        // Función para obtener y mostrar visitantes
+        async function fetchVisitors() {
             try {
-                // IMPORTANTE: Usamos ruta relativa '/api/visitors' 
-                // Esto requiere que el Nginx del frontend actúe como proxy.
                 const response = await fetch('/api/visitors');
-                
-                if (!response.ok) throw new Error('Error en la respuesta de la API');
+                if (!response.ok) throw new Error('Error al conectar con la API');
                 
                 const data = await response.json();
 
                 if (data.length === 0) {
-                    statusEl.innerText = "No hay visitantes registrados aún.";
+                    statusEl.innerText = "Aún no hay visitas. ¡Sé el primero!";
+                    statusEl.style.display = 'block';
+                    tableEl.style.display = 'none';
                 } else {
                     statusEl.style.display = 'none';
                     tableEl.style.display = 'table';
@@ -63,13 +146,44 @@
                     `).join('');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                statusEl.innerText = "Error al cargar datos de la base de datos.";
+                statusEl.innerText = "⚠️ Error al cargar datos.";
                 statusEl.style.color = "red";
             }
         }
 
-        // Ejecutar al cargar la página
+        // Evento para registrar nuevo visitante
+        formEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = inputEl.value.trim();
+            
+            if (!name) return;
+
+            // Desactivar UI mientras procesa
+            btnEl.disabled = true;
+            btnEl.innerText = "Guardando...";
+
+            try {
+                const response = await fetch('/api/visitors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (!response.ok) throw new Error('Error al guardar');
+
+                // Limpiar formulario y refrescar lista
+                inputEl.value = '';
+                await fetchVisitors();
+                
+            } catch (error) {
+                alert("No se pudo registrar la visita. Intenta de nuevo.");
+            } finally {
+                btnEl.disabled = false;
+                btnEl.innerText = "Registrar";
+            }
+        });
+
+        // Carga inicial
         fetchVisitors();
     </script>
 </body>
